@@ -81,7 +81,7 @@ export const userLoginController = async (
       res.status(401).json({ message: 'Invalid email or password' });
       return;
     }
-    const token = jwt.sign({id:user._id,role:user.role},process.env.JWT_USER_SECRET_KEY,{expiresIn:'1d'})
+    const token = jwt.sign({id:user._id,role:user.role},process.env.JWT_SECRET,{expiresIn:'1d'})
     res.status(200).json({
         message:'User Logged in successfully!',
         token,
