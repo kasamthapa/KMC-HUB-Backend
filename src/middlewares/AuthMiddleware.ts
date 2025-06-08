@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import jwt, { TokenExpiredError } from "jsonwebtoken";
 
-interface JwtPayload {
+export interface JwtPayload {
   id: string;
   role: string;
 }
@@ -20,7 +20,7 @@ const authAllRoles = async (
   next: NextFunction
 ) => {
   const auth = req.headers["authorization"];
-  const token = auth && auth.split[" "][1];
+  const token = auth && auth.split(' ')[1];
   if (!token) {
     res.status(403).json({
       message: " Missing token1",
@@ -36,19 +36,22 @@ const authAllRoles = async (
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ message: "Token expired" });
+       res.status(401).json({ message: "Token expired" });
+       return;
     }
     if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ message: "Invalid token" });
+      res.status(401).json({ message: "Invalid token" });
+      return;
     }
     console.error("Error verifying token:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
+    return;
   }
 };
 const verifyRole = (requiredRole: Role) => {
   return async (req: CustomRequest, res: Response, next: NextFunction) => {
     const auth = req.headers["authorization"];
-    const token = auth && auth.split[" "][1];
+    const token = auth && auth.split(' ')[1];
     if (!token) {
       res.status(403).json({
         message: " Missing token1",
