@@ -215,7 +215,7 @@ export const unlikePostController = async (
     post.likes = post.likes.filter((id) => !id.equals(userObjectId));
     await post.save();
     res.status(200).json({
-      message: "Post deleted successfully",
+      message: "Unliked successfully",
       post,
     });
   } catch (e) {

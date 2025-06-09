@@ -1,7 +1,7 @@
 import express, { Application } from 'express';
 import {connectDB} from './config/DatabaseConnect';
 import userAuth from './features/auth/api/auth.routes'
-import postRoute from './features/collaboration_feed/api/posts';
+import postRoute from './features/collaboration_feed/api/posts.routes';
 const app:Application = express();
 const port = 3000;
 connectDB();
