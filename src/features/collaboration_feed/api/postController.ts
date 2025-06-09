@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
-import { postSchema, Post, updatePostSchema } from "../schemas/index";
-import postModel from "../db/posts";
-import { JwtPayload } from "../middlewares/AuthMiddleware";
+import { postSchema, Post, updatePostSchema } from "../schemas/posts.schema";
+import postModel from "../models/posts";
+import { JwtPayload } from "../../../middlewares/AuthMiddleware";
 
 interface CustomRequest extends Request<{ postId: string }, unknown, Post> {
   user?: JwtPayload;

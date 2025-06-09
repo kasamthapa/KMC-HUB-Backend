@@ -7,8 +7,8 @@ import {
   UserSignup,
   UserLogin,
   userLoginSchema,
-} from "../schemas/index";
-import userModel from "../db/user";
+} from "../schemas/auth.schema";
+import userModel from "../models/user";
 // import { RequestHandler } from "express-serve-static-core";
 
 export const userSignupController = async (
@@ -97,4 +97,3 @@ catch(e){
     return
 }
 }
-

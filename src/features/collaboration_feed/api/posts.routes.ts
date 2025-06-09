@@ -1,5 +1,5 @@
-import { authAll } from '../middlewares/AuthMiddleware';
-import { createPostController, deletePostController, editPostController, getAllPostController, getLikeCountController, likePostController, unlikePostController } from './../controllers/postController';
+import { authAll } from '../../../middlewares/AuthMiddleware';
+import { createPostController, deletePostController, editPostController, getAllPostController, getLikeCountController, likePostController, unlikePostController } from '../api/postController'
 import { Router } from "express";
 
 const router = Router();
