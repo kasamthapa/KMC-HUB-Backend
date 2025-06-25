@@ -22,7 +22,8 @@ const corsOptions: cors.CorsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use("/api/v1/auth", userAuth);
+app.use("/uploads", express.static("uploads"));
+app.use("/api/v1/auth", userAuth)
 app.use("/api/v1/posts", postRoute);
 app.get("/", (req, res) => {
   res.send("Hello World!");

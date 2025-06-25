@@ -1,43 +1,77 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
 import { postSchema, Post, updatePostSchema } from "../schemas/posts.schema";
 import postModel from "../models/posts";
 import { JwtPayload } from "../../../middlewares/AuthMiddleware";
+import path from "node:path";
+import multer from "multer";
+
+const storage = multer.diskStorage({
+  destination: "./uploads",
+  filename: (
+    req: unknown,
+    file: { originalname: string },
+    cb: (arg0: null, arg1: string) => void
+  ) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype.startsWith("image/") ||
+      file.mimetype.startsWith("video/")
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type"), false);
+    }
+  },
+});
 
 interface CustomRequest extends Request<{ postId: string }, unknown, Post> {
+  file: any;
   user?: JwtPayload;
 }
-export const createPostController = async (
-  req: CustomRequest,
-  res: Response
-) => {
-  try {
-    const user = req.user;
-    const { content, media } = postSchema.parse(req.body);
-    const post = await postModel.create({
-      userId: user.id,
-      content,
-      media: media || [],
-    });
-    res.status(201).json({
-      message: "created post successfully",
-      post,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+export const createPostController = [
+  upload.single("media"),
+  async (req: CustomRequest, res: Response) => {
+    try {
+      const user = req.user;
+      const { content, mediaType } = postSchema.parse(req.body);
+      const postData: any = {
+        userId: user.id,
+        content,
+        media: [],
+      };
+      if (req.file && mediaType) {
+        postData.media = [
+          { url: `/uploads/${req.file.filename}`, type: mediaType },
+        ];
+      }
+      const post = await postModel.create(postData);
+      res.status(201).json({
+        message: "created post successfully",
+        post,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res
+          .status(400)
+          .json({ message: "Validation failed", errors: error.errors });
+        return;
+      }
+      console.error("Error creating post:", error);
       res
-        .status(400)
-        .json({ message: "Validation failed", errors: error.errors });
+        .status(500)
+        .json({ message: "Server error", error: (error as Error).message });
       return;
     }
-    console.error("Error creating post:", error);
-    res
-      .status(500)
-      .json({ message: "Server error", error: (error as Error).message });
-    return;
-  }
-};
+  },
+];
 
 export const getAllPostController = async (req: Request, res: Response) => {
   try {
