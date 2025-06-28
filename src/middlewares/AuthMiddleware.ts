@@ -5,7 +5,7 @@ export interface JwtPayload {
   id: string;
   role: string;
 }
-interface CustomRequest extends Request {
+export interface CustomRequest extends Request {
   user?: JwtPayload;
 }
 enum Role {
@@ -14,44 +14,33 @@ enum Role {
   Admin = "Admin",
 }
 
-const authAllRoles = async (
+export const authAllRoles = async (
   req: CustomRequest,
   res: Response,
   next: NextFunction
 ) => {
-  const auth = req.headers["authorization"];
-  const token = auth && auth.split(' ')[1];
-  if (!token) {
-    res.status(403).json({
-      message: " Missing token1",
-    });
-    return;
-  }
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as JwtPayload;
-    req.user = decoded;
-    next();
-  } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-       res.status(401).json({ message: "Token expired" });
+    const authHeader = req.header("Authorization");
+    console.log("Auth header:", authHeader); // Debug
+    const token = authHeader?.replace("Bearer ", "");
+    if (!token) {
+      console.log("No token provided");
+       res.status(401).json({ message: "No token provided" });
        return;
     }
-    if (error instanceof jwt.JsonWebTokenError) {
-      res.status(401).json({ message: "Invalid token" });
-      return;
-    }
-    console.error("Error verifying token:", error);
-    res.status(500).json({ message: "Server error" });
-    return;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    console.log("Decoded JWT:", decoded); // Debug
+    req.user = decoded;
+    next();
+  } catch (e) {
+    console.error("Auth middleware error:", e);
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 const verifyRole = (requiredRole: Role) => {
   return async (req: CustomRequest, res: Response, next: NextFunction) => {
     const auth = req.headers["authorization"];
-    const token = auth && auth.split(' ')[1];
+    const token = auth && auth.split(" ")[1];
     if (!token) {
       res.status(403).json({
         message: " Missing token1",

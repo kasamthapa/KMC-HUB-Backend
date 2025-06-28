@@ -6,6 +6,7 @@ import mongoose, { Schema, Document } from 'mongoose';
      email: string;
      password: string;
      role: 'Student' | 'Teacher' | 'Admin';
+     avatar:string,
      createdAt: Date;
    }
 
@@ -31,6 +32,7 @@ import mongoose, { Schema, Document } from 'mongoose';
        required: true,
        default: 'Student',
      },
+     avatar: { type: String },
      createdAt: { type: Date, default: Date.now },
    });
 

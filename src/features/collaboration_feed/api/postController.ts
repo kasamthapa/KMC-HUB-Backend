@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { z } from "zod";
+
 import { postSchema, Post, updatePostSchema } from "../schemas/posts.schema";
 import postModel from "../models/posts";
 import { JwtPayload } from "../../../middlewares/AuthMiddleware";
@@ -40,104 +40,80 @@ export const createPostController = [
   upload.single("media"),
   async (req: CustomRequest, res: Response) => {
     try {
-      const user = req.user;
       const { content, mediaType } = postSchema.parse(req.body);
-      const postData: any = {
-        userId: user.id,
-        content,
-        media: [],
-      };
-      if (req.file && mediaType) {
-        postData.media = [
-          { url: `/uploads/${req.file.filename}`, type: mediaType },
-        ];
-      }
-      const post = await postModel.create(postData);
-      res.status(201).json({
-        message: "created post successfully",
-        post,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res
-          .status(400)
-          .json({ message: "Validation failed", errors: error.errors });
-        return;
-      }
-      console.error("Error creating post:", error);
-      res
-        .status(500)
-        .json({ message: "Server error", error: (error as Error).message });
-      return;
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const media = req.file
+        ? [{ url: `/uploads/${req.file.filename}`, type: mediaType }]
+        : [];
+      const post = new postModel({ userId, content, media });
+      await post.save();
+      const populatedPost = await postModel
+        .findById(post._id)
+        .populate("userId", "name email avatar role");
+      console.log("Created post:", populatedPost); // Debug
+      res.status(201).json({ post: populatedPost });
+    } catch (e) {
+      console.error("Error creating post:", e);
+      res.status(500).json({ message: "Error creating post" });
     }
   },
 ];
 
 export const getAllPostController = async (req: Request, res: Response) => {
   try {
-    const posts = await postModel.find();
-    res.status(200).json({
-      posts,
-    });
-    return;
+    const posts = await postModel
+      .find()
+      .populate("userId", "name email avatar role");
+    console.log(
+      "Fetched posts:",
+      posts.map((p) => ({
+        _id: p._id,
+        userId: p.userId,
+        content: p.content,
+      }))
+    ); // Debug
+    res.status(200).json({ posts });
   } catch (e) {
-    console.log("Internal Server Error", e);
-    res.status(500).json({
-      message: "Error getting all Posts",
-    });
-
-    return;
+    console.error("Error fetching posts:", e);
+    res.status(500).json({ message: "Error fetching posts" });
   }
 };
 
 export const editPostController = async (req: CustomRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
     const { postId } = req.params;
     const { content } = updatePostSchema.parse(req.body);
-
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
-      res.status(400).json({ message: "Invalid post ID" });
-      return;
-    }
-    const post = await postModel.findOne({
-      _id: postId,
-      userId: new mongoose.Types.ObjectId(userId),
-    });
+    const post = await postModel.findById(postId);
     if (!post) {
-      res.status(404).json({
-        message: "Post not found or you are not authorized to edit it",
-      });
+      res.status(404).json({ message: "Post not found" });
       return;
     }
-    post.content = content;
-    await post.save();
-    res.status(200).json({
-      message: "Post updated successfully",
-      post: {
-        _id: post._id,
-        content: post.content,
-        media: post.media,
-        likes: post.likes.length,
-        createdAt: post.createdAt,
-      },
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      res
-        .status(400)
-        .json({ message: "Validation failed", errors: error.errors });
+    if (post.userId.toString() !== userId) {
+      res.status(403).json({ message: "Not authorized to edit this post" });
       return;
     }
-    console.log("Internal Server Error", error);
-    res.status(500).json({
-      message: "Error editing post !",
-    });
-    return;
+    const updatedPost = await postModel
+      .findByIdAndUpdate(
+        postId,
+        { content, updatedAt: new Date() },
+        { new: true }
+      )
+      .populate("userId", "name email avatar role");
+    if (!updatedPost) {
+      res.status(404).json({ message: "Post not found" });
+      return;
+    }
+    console.log("Edited post:", updatedPost); // Debug
+    res.status(200).json(updatedPost);
+  } catch (e: any) {
+    console.error("Error editing post:", e);
+    res.status(500).json({ message: "Error editing post" });
   }
 };
 
@@ -183,37 +159,39 @@ export const likePostController = async (req: CustomRequest, res: Response) => {
   try {
     const { postId } = req.params;
     const userId = req.user?.id;
-
+    console.log("Like Post - UserID:", userId, "PostID:", postId); // Debug
     if (!userId) {
+      console.log("Unauthorized: No user ID");
       res.status(401).json({ message: "Unauthorized" });
+      return;
     }
-
     if (!mongoose.Types.ObjectId.isValid(postId)) {
+      console.log("Invalid post ID:", postId);
       res.status(400).json({ message: "Invalid post ID" });
       return;
     }
     const post = await postModel.findById(postId);
     if (!post) {
+      console.log("Post not found:", postId);
       res.status(404).json({ message: "Post not found" });
       return;
     }
-
     const userObjectId = new mongoose.Types.ObjectId(userId);
     if (post.likes.some((id) => id.equals(userObjectId))) {
+      console.log("Already liked:", postId, userId);
       res.status(400).json({ message: "You already liked this post" });
       return;
     }
     post.likes.push(userObjectId);
     await post.save();
+    const populatedPost = await postModel.findById(post._id).populate("userId");
     res.status(200).json({
       message: "Post liked successfully",
-      post,
+      post: populatedPost,
     });
   } catch (e) {
-    console.log("Internal Server Error", e);
-    res.status(500).json({
-      message: "Error liking post !",
-    });
+    console.error("Error liking post:", e);
+    res.status(500).json({ message: "Error liking post" });
   }
 };
 export const unlikePostController = async (

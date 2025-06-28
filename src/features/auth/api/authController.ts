@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import bcrypt, { genSalt } from "bcrypt-ts";
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
+import { CustomRequest } from "../../../middlewares/AuthMiddleware";
 import {
   userSignupSchema,
   UserSignup,
@@ -66,34 +67,73 @@ export const userLoginController = async (
   req: Request<object, object, UserLogin>,
   res: Response
 ) => {
-    try{
-        const { email, password } = userLoginSchema.parse(req.body);
+  try {
+    const { email, password } = userLoginSchema.parse(req.body);
 
-        const user = await userModel.findOne({ email });
+    const user = await userModel.findOne({ email });
 
-        if (!user) {
-            res.status(401).json({ message: 'Invalid email or password' });
-            return;
-          }
-          //Verify password with user password
-          const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      res.status(401).json({ message: 'Invalid email or password' });
+    if (!user) {
+      res.status(401).json({ message: "Invalid email or password" });
       return;
     }
-    const token = jwt.sign({id:user._id,role:user.role},process.env.JWT_SECRET,{expiresIn:'1d'})
-    res.status(200).json({
-        message:'User Logged in successfully!',
-        token,
-        User:{id:user._id,name:user.name,email:user.email,role:user.role}
-    })
-}
-catch(e){
-    if(e instanceof z.ZodError){
-        res.status(400).json({ message: 'Validation failed', errors: e.errors });
-        return;
+    //Verify password with user password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
     }
-    res.status(500).json({ message: 'Server error', error: (e as Error).message });
-    return
-}
-}
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+    res.status(200).json({
+      message: "User Logged in successfully!",
+      token,
+      User: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ message: "Validation failed", errors: e.errors });
+      return;
+    }
+    res
+      .status(500)
+      .json({ message: "Server error", error: (e as Error).message });
+    return;
+  }
+};
+export const getCurrentUser = async (req: CustomRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+    const user = await userModel
+      .findById(userId)
+      .select("name email avatar role");
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+    res.status(200).json({
+      user: {
+        _id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        role: user.role,
+      },
+    });
+  } catch (e) {
+    console.error("Error fetching user:", e);
+    res.status(500).json({ message: "Server error" });
+    return;
+  }
+};
