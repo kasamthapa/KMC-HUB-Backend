@@ -25,8 +25,8 @@ export const authAllRoles = async (
     const token = authHeader?.replace("Bearer ", "");
     if (!token) {
       console.log("No token provided");
-       res.status(401).json({ message: "No token provided" });
-       return;
+      res.status(401).json({ message: "No token provided" });
+      return;
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
     console.log("Decoded JWT:", decoded); // Debug
