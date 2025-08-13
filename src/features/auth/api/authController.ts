@@ -1,7 +1,9 @@
+import path from "path";
 import { Request, Response } from "express";
 import { z } from "zod";
 import bcrypt, { genSalt } from "bcrypt-ts";
 import jwt from "jsonwebtoken";
+import multer from "multer";
 import { CustomRequest } from "../../../middlewares/AuthMiddleware";
 import {
   userSignupSchema,
@@ -12,7 +14,29 @@ import {
 import userModel from "../models/user";
 // import { RequestHandler } from "express-serve-static-core";
 
-export const userSignupController = async (
+const storage = multer.diskStorage({
+  destination: "./uploads",
+  filename: (
+    req: unknown,
+    file: { originalname: string },
+    cb: (arg0: Error | null, arg1: string) => void
+  ) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+const upload = multer({ storage ,
+  fileFilter: (req, file, cb:(arg0:Error | null, arg1:string | boolean)=>void) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only images are allowed"), false);
+    }
+  },
+}
+  
+);
+
+export const userSignupController =[ upload.single("avatar"),async (
   req: Request<object, object, UserSignup>,
   res: Response
 ) => {
@@ -37,6 +61,7 @@ export const userSignupController = async (
     //Salt genertion for hash
     const salt = await genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
+    const avatarPath = req.file?`/uploads/${req.file.filename}`:undefined;
     //Create User
     const User = await userModel.create({
       idNumber: role === "Student" ? idNumber : undefined,
@@ -44,6 +69,7 @@ export const userSignupController = async (
       email: email,
       password: hashedPassword,
       role: role,
+      avatar:avatarPath
     });
     res.status(200).json({
       message: "User signed up successfully!",
@@ -56,13 +82,17 @@ export const userSignupController = async (
         .json({ message: "Validation failed", errors: error.errors });
       return;
     }
+    if (error instanceof multer.MulterError) {
+       res.status(400).json({ message: "Avatar upload failed", error: error.message });
+       return
+    }
     res
       .status(500)
       .json({ message: "Server error", error: (error as Error).message });
     return;
   }
-};
-
+}
+]
 export const userLoginController = async (
   req: Request<object, object, UserLogin>,
   res: Response
@@ -95,6 +125,7 @@ export const userLoginController = async (
         name: user.name,
         email: user.email,
         role: user.role,
+        avatar:user.avatar
       },
     });
   } catch (e) {

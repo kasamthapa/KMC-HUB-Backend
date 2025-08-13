@@ -11,6 +11,9 @@ export const postSchema = z.object({
 export const updatePostSchema = z.object({
   content: z.string().max(300),
 });
+export const commentSchema = z.object({
+  text: z.string().min(1, "Comment cannot be empty").max(300, "Max 300 chars"),
+});
 
 // Inferred Types
 export type Post = z.infer<typeof postSchema>;
